@@ -1,6 +1,7 @@
 const express = require('express');
 const usersRouter = express.Router();
-const { getAllUsers, getUserByUsername, createUser } = require('../db');
+const { getAllUsers, getUserByUsername, createUser, getUserById, updateUser } = require('../db');
+const { requireUser } = require('./utils')
 const jwt = require('jsonwebtoken');
 
 usersRouter.use((req, res, next) => {
@@ -81,5 +82,45 @@ usersRouter.get('/', async (req, res) => {
       next({ name, message })
     } 
   });
+
+  usersRouter.delete('/:userId', requireUser, async (req, res, next) => {
+    try {
+      const user = await getUserById(req.params.userId)
+      if (user.id === req.user.id) {
+        const deletedUser = await updateUser(user.id, { active: false })
+        res.send({result : deletedUser})
+      } else {
+        next(user ? {
+          name : "UnauthorizedUserError",
+          message : "You cannot delete a user that is not your own"
+        } : {
+          name : "UserNotFoundError", 
+          message : "The user you are trying to delete does not exist"
+        })
+      }
+    } catch ({ name, message }) {
+      next({name, message})
+    }
+  })
+
+  usersRouter.patch('/:usersId', requireUser, async (req, res, next) => {
+    try {
+      const user = await getUserById(req.params.usersId)
+      if (user.id) {
+        const reactivatedUser = await updateUser(user.id, { active: true })
+        res.send({ result: reactivatedUser })
+      } else {
+        next(user ? {
+          name : "UnauthorizedUserError",
+          message : "You cannot reactivate a user that is not your own"
+        } : {
+          name : "UserNotFoundError", 
+          message : "The user you are trying to reactivate does not exist"
+        })
+      }
+    } catch ({ name, message }) {
+      next({name, message})
+    }
+  })
 
 module.exports = usersRouter;
